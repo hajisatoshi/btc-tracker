@@ -1,6 +1,5 @@
 """
 Clean and refactored BTC Portfolio Tracker GUI
-This version has been refactored for better maintainability and readability
 """
 
 import tkinter as tk
@@ -10,112 +9,126 @@ import requests
 import csv
 from typing import Dict, List, Optional
 
-# Configuration constants
+# Import utility functions
+try:
+    from utils import (
+        show_error, show_info, show_warning, confirm_action,
+        validate_float, validate_date, format_btc_amount,
+        create_button, create_label, clear_frame, get_current_date,
+        FormValidator, WidgetHelper, format_currency_list,
+        BUTTON_COLORS, FONT_HEADER
+    )
+except ImportError:
+    # Fallback implementations if utils module is not available
+    def show_error(title, message):
+        messagebox.showerror(title, message)
+    
+    def show_info(title, message):
+        messagebox.showinfo(title, message)
+    
+    def show_warning(title, message):
+        messagebox.showwarning(title, message)
+    
+    def confirm_action(title, message):
+        return messagebox.askyesno(title, message)
+    
+    def validate_float(value, field_name):
+        try:
+            return float(value)
+        except ValueError:
+            raise ValueError(f"Invalid number format for {field_name}")
+    
+    def validate_date(date_str):
+        try:
+            datetime.strptime(date_str, "%Y-%m-%d")
+            return True
+        except ValueError:
+            return False
+    
+    def format_btc_amount(amount):
+        return f"{amount:.8f}"
+    
+    def create_button(parent, text, command, button_type='primary', **kwargs):
+        colors = {'bg': '#007bff', 'fg': 'white'}
+        return tk.Button(parent, text=text, command=command, bg=colors['bg'], fg=colors['fg'], **kwargs)
+    
+    def create_label(parent, text, font_type='normal', **kwargs):
+        fonts = {'header': ("Arial", 14, "bold"), 'normal': ("Arial", 10)}
+        font = fonts.get(font_type, fonts['normal'])
+        return tk.Label(parent, text=text, font=font, **kwargs)
+    
+    def clear_frame(frame):
+        for widget in frame.winfo_children():
+            widget.destroy()
+    
+    def get_current_date():
+        return datetime.now().strftime("%Y-%m-%d")
+    
+    def format_currency_list():
+        return ('USD', 'CAD', 'Swiss Franc', 'Ounces of Gold')
+    
+    class FormValidator:
+        @staticmethod
+        def validate_login_form(username, password):
+            errors = []
+            if not username:
+                errors.append("Username is required")
+            if not password:
+                errors.append("Password is required")
+            return {'is_valid': len(errors) == 0, 'errors': errors}
+        
+        @staticmethod
+        def validate_registration_form(username, password, confirm_password):
+            errors = []
+            if not username:
+                errors.append("Username is required")
+            if not password:
+                errors.append("Password is required")
+            if password != confirm_password:
+                errors.append("Passwords do not match")
+            return {'is_valid': len(errors) == 0, 'errors': errors}
+        
+        @staticmethod
+        def validate_purchase_form(date, btc_amount, cost):
+            errors = []
+            if not date:
+                errors.append("Purchase date is required")
+            if not btc_amount:
+                errors.append("BTC amount is required")
+            if not cost:
+                errors.append("Cost is required")
+            return {'is_valid': len(errors) == 0, 'errors': errors}
+    
+    class WidgetHelper:
+        @staticmethod
+        def create_form_field(parent, label_text, entry_type='text', **kwargs):
+            label = create_label(parent, label_text)
+            label.pack(pady=(10, 0))
+            
+            if entry_type == 'password':
+                entry = tk.Entry(parent, show="*", **kwargs)
+            elif entry_type == 'textarea':
+                entry = tk.Text(parent, **kwargs)
+            else:
+                entry = tk.Entry(parent, **kwargs)
+            
+            entry.pack(pady=(0, 5))
+            return label, entry
+        
+        @staticmethod
+        def create_radio_group(parent, label_text, options, variable, **kwargs):
+            create_label(parent, label_text).pack()
+            
+            radio_frame = tk.Frame(parent)
+            radio_frame.pack(pady=5)
+            
+            for option in options:
+                radio = tk.Radiobutton(radio_frame, text=option, variable=variable, value=option, **kwargs)
+                radio.pack(side="left", padx=10)
+            
+            return radio_frame
+
 API_URL = "http://localhost:5000"
-DEFAULT_DATE_FORMAT = "%Y-%m-%d"
-CURRENCIES = ('USD', 'CAD', 'Swiss Franc', 'Ounces of Gold')
-
-# Utility functions
-def show_error(title: str, message: str):
-    """Show error message dialog"""
-    messagebox.showerror(title, message)
-
-def show_info(title: str, message: str):
-    """Show info message dialog"""
-    messagebox.showinfo(title, message)
-
-def show_warning(title: str, message: str):
-    """Show warning message dialog"""
-    messagebox.showwarning(title, message)
-
-def confirm_action(title: str, message: str) -> bool:
-    """Show confirmation dialog and return result"""
-    return messagebox.askyesno(title, message)
-
-def validate_float(value: str, field_name: str) -> float:
-    """Validate and convert string to float"""
-    try:
-        return float(value)
-    except ValueError:
-        raise ValueError(f"Invalid number format for {field_name}")
-
-def validate_date(date_str: str) -> bool:
-    """Validate date string format"""
-    try:
-        datetime.strptime(date_str, DEFAULT_DATE_FORMAT)
-        return True
-    except ValueError:
-        return False
-
-def format_btc_amount(amount: float) -> str:
-    """Format BTC amount with proper precision"""
-    return f"{amount:.8f}"
-
-def get_current_date() -> str:
-    """Get current date in default format"""
-    return datetime.now().strftime(DEFAULT_DATE_FORMAT)
-
-def clear_frame(frame: tk.Frame):
-    """Clear all widgets from a frame"""
-    for widget in frame.winfo_children():
-        widget.destroy()
-
-class FormValidator:
-    """Form validation helper class"""
-    
-    @staticmethod
-    def validate_login_form(username: str, password: str) -> Dict:
-        """Validate login form data"""
-        errors = []
-        if not username:
-            errors.append("Username is required")
-        if not password:
-            errors.append("Password is required")
-        return {'is_valid': len(errors) == 0, 'errors': errors}
-    
-    @staticmethod
-    def validate_registration_form(username: str, password: str, confirm_password: str) -> Dict:
-        """Validate registration form data"""
-        errors = []
-        if not username:
-            errors.append("Username is required")
-        elif len(username) < 3:
-            errors.append("Username must be at least 3 characters")
-        if not password:
-            errors.append("Password is required")
-        elif len(password) < 6:
-            errors.append("Password must be at least 6 characters")
-        if password != confirm_password:
-            errors.append("Passwords do not match")
-        return {'is_valid': len(errors) == 0, 'errors': errors}
-    
-    @staticmethod
-    def validate_purchase_form(date: str, btc_amount: str, cost: str) -> Dict:
-        """Validate purchase form data"""
-        errors = []
-        if not date:
-            errors.append("Purchase date is required")
-        elif not validate_date(date):
-            errors.append("Invalid date format. Use YYYY-MM-DD")
-        if not btc_amount:
-            errors.append("BTC amount is required")
-        else:
-            try:
-                btc_val = validate_float(btc_amount, "BTC amount")
-                if btc_val <= 0:
-                    errors.append("BTC amount must be positive")
-            except ValueError as e:
-                errors.append(str(e))
-        if not cost:
-            errors.append("Cost is required")
-        else:
-            try:
-                cost_val = validate_float(cost, "Cost")
-                if cost_val <= 0:
-                    errors.append("Cost must be positive")
-            except ValueError as e:
-                errors.append(str(e))
-        return {'is_valid': len(errors) == 0, 'errors': errors}
 
 class CurrencyConverter:
     """Handles currency conversion logic"""
@@ -124,7 +137,7 @@ class CurrencyConverter:
         'USD': 1.0,
         'CAD': 1.35,
         'Swiss Franc': 0.92,
-        'Ounces of Gold': 0.0005
+        'Ounces of Gold': 0.0005  # Approximate: $2000 per ounce
     }
     
     CURRENCY_SYMBOLS = {
@@ -158,7 +171,7 @@ class CurrencyConverter:
         elif source_currency == "CAD":
             return amount / 1.35
         else:
-            return amount
+            return amount  # Default to treating as USD
 
 class APIClient:
     """Handles all API communication"""
@@ -190,39 +203,38 @@ class APIClient:
             else:
                 raise ValueError(f"Unsupported HTTP method: {method}")
             
-            # Handle authorization errors specifically
-            if resp.status_code == 401:
-                try:
-                    error_data = resp.json()
-                    return error_data, resp.status_code
-                except:
-                    return {"msg": "Authorization failed - please log in again"}, resp.status_code
-            
             return resp.json(), resp.status_code
         except requests.exceptions.RequestException as e:
             raise Exception(f"Connection error: {str(e)}\nMake sure the backend server is running!")
     
     def login(self, username: str, password: str) -> tuple:
+        """Authenticate user and return response"""
         data = {"username": username, "password": password}
         return self._make_request("POST", "/login", data)
     
     def register(self, username: str, password: str) -> tuple:
+        """Register new user and return response"""
         data = {"username": username, "password": password}
         return self._make_request("POST", "/register", data)
     
     def get_portfolio(self) -> tuple:
+        """Get portfolio summary"""
         return self._make_request("GET", "/portfolio/summary")
     
     def get_purchases(self) -> tuple:
+        """Get all purchases"""
         return self._make_request("GET", "/purchases")
     
     def add_purchase(self, purchase_data: Dict) -> tuple:
+        """Add new purchase"""
         return self._make_request("POST", "/purchases", purchase_data)
     
     def update_purchase(self, purchase_id: int, purchase_data: Dict) -> tuple:
+        """Update existing purchase"""
         return self._make_request("PUT", f"/purchases/{purchase_id}", purchase_data)
     
     def delete_purchase(self, purchase_id: int) -> tuple:
+        """Delete purchase"""
         return self._make_request("DELETE", f"/purchases/{purchase_id}")
 
 class LoginFrame:
@@ -239,18 +251,18 @@ class LoginFrame:
         container = tk.Frame(self.frame)
         container.pack()
         
-        tk.Label(container, text="BTC Portfolio Tracker", font=("Arial", 16, "bold")).pack(pady=10)
+        create_label(container, "BTC Portfolio Tracker", 'header').pack(pady=10)
         
-        tk.Label(container, text="Username:").pack()
-        self.username_entry = tk.Entry(container, width=30)
-        self.username_entry.pack(pady=5)
+        self.username_label, self.username_entry = WidgetHelper.create_form_field(
+            container, "Username:", width=30
+        )
         
-        tk.Label(container, text="Password:").pack()
-        self.password_entry = tk.Entry(container, show="*", width=30)
-        self.password_entry.pack(pady=5)
+        self.password_label, self.password_entry = WidgetHelper.create_form_field(
+            container, "Password:", entry_type='password', width=30
+        )
         
-        tk.Button(container, text="Login", command=self.login, bg="green", fg="white").pack(pady=10)
-        tk.Button(container, text="Register New User", command=self.show_register, bg="blue", fg="white").pack()
+        create_button(container, "Login", self.login, 'login').pack(pady=10)
+        create_button(container, "Register New User", self.show_register, 'register').pack()
     
     def login(self):
         username = self.username_entry.get()
@@ -279,19 +291,19 @@ class LoginFrame:
         register_window.geometry("350x300")
         register_window.resizable(False, False)
         
-        tk.Label(register_window, text="Register New User", font=("Arial", 14, "bold")).pack(pady=10)
+        create_label(register_window, "Register New User", 'header').pack(pady=10)
         
-        tk.Label(register_window, text="Username:").pack()
-        username_entry = tk.Entry(register_window, width=30)
-        username_entry.pack(pady=5)
+        username_label, username_entry = WidgetHelper.create_form_field(
+            register_window, "Username:", width=30
+        )
         
-        tk.Label(register_window, text="Password:").pack()
-        password_entry = tk.Entry(register_window, show="*", width=30)
-        password_entry.pack(pady=5)
+        password_label, password_entry = WidgetHelper.create_form_field(
+            register_window, "Password:", entry_type='password', width=30
+        )
         
-        tk.Label(register_window, text="Confirm Password:").pack()
-        confirm_entry = tk.Entry(register_window, show="*", width=30)
-        confirm_entry.pack(pady=5)
+        confirm_label, confirm_entry = WidgetHelper.create_form_field(
+            register_window, "Confirm Password:", entry_type='password', width=30
+        )
         
         def register_user():
             username = username_entry.get()
@@ -316,7 +328,7 @@ class LoginFrame:
             except Exception as e:
                 show_error("Connection Error", str(e))
         
-        tk.Button(register_window, text="Register", command=register_user, bg="blue", fg="white").pack(pady=10)
+        create_button(register_window, "Register", register_user, 'register').pack(pady=10)
     
     def pack(self, **kwargs):
         self.frame.pack(**kwargs)
@@ -338,15 +350,15 @@ class PortfolioTab:
         container = tk.Frame(self.frame)
         container.pack(pady=20, padx=20, fill="both", expand=True)
         
-        tk.Label(container, text="Portfolio Summary", font=("Arial", 14, "bold")).pack(pady=10)
+        create_label(container, "Portfolio Summary", 'header').pack(pady=10)
         
         # Currency filter
         filter_frame = tk.Frame(container)
         filter_frame.pack(pady=5)
         
-        tk.Label(filter_frame, text="Show values in:").pack(side="left", padx=5)
+        create_label(filter_frame, "Show values in:").pack(side="left", padx=5)
         self.currency_filter = ttk.Combobox(filter_frame, width=15, state="readonly")
-        self.currency_filter['values'] = CURRENCIES
+        self.currency_filter['values'] = format_currency_list()
         self.currency_filter.set('USD')
         self.currency_filter.pack(side="left", padx=5)
         self.currency_filter.bind('<<ComboboxSelected>>', self.on_currency_change)
@@ -358,8 +370,8 @@ class PortfolioTab:
         button_frame = tk.Frame(container)
         button_frame.pack(pady=10)
         
-        tk.Button(button_frame, text="Refresh Portfolio", command=self.refresh_portfolio, bg="blue", fg="white").pack(pady=5)
-        tk.Button(button_frame, text="Logout", command=self.on_logout, bg="red", fg="white").pack(pady=5)
+        create_button(button_frame, "Refresh Portfolio", self.refresh_portfolio, 'refresh').pack(pady=5)
+        create_button(button_frame, "Logout", self.on_logout, 'logout').pack(pady=5)
     
     def refresh_portfolio(self):
         """Refresh portfolio data"""
@@ -368,10 +380,6 @@ class PortfolioTab:
             
             if status_code == 200:
                 self.display_portfolio(response)
-            elif status_code == 401:
-                # Token expired or invalid - redirect to login
-                show_error("Session Expired", "Your session has expired. Please log in again.")
-                self.on_logout()
             else:
                 show_error("Portfolio Error", response.get("msg", "Failed to fetch portfolio"))
         except Exception as e:
@@ -382,21 +390,21 @@ class PortfolioTab:
         currency = self.currency_filter.get()
         
         # Convert values to selected currency
-        cost_basis = CurrencyConverter.convert_from_usd(data['net_cost_basis_usd'], currency)
+        cost_basis = CurrencyConverter.convert_from_usd(data['cost_basis_usd'], currency)
         current_value = CurrencyConverter.convert_from_usd(data['current_value_usd'], currency) if data['current_value_usd'] else "N/A"
         btc_price = CurrencyConverter.convert_from_usd(data['btc_price_usd'], currency) if data['btc_price_usd'] else "N/A"
         
         # Calculate profit/loss
-        if data['current_value_usd'] and data['net_cost_basis_usd']:
-            profit_loss_usd = data['current_value_usd'] - data['net_cost_basis_usd']
+        if data['current_value_usd'] and data['cost_basis_usd']:
+            profit_loss_usd = data['current_value_usd'] - data['cost_basis_usd']
             profit_loss = CurrencyConverter.convert_from_usd(profit_loss_usd, currency)
-            profit_loss_percent = ((data['current_value_usd'] - data['net_cost_basis_usd']) / data['net_cost_basis_usd']) * 100
+            profit_loss_percent = ((data['current_value_usd'] - data['cost_basis_usd']) / data['cost_basis_usd']) * 100
             profit_loss_text = f"Profit/Loss: {profit_loss} ({profit_loss_percent:+.2f}%)"
         else:
             profit_loss_text = "Profit/Loss: N/A"
         
         summary = (
-            f"Total BTC: {format_btc_amount(data['net_btc'])}\n"
+            f"Total BTC: {format_btc_amount(data['total_btc'])}\n"
             f"Cost Basis: {cost_basis}\n"
             f"Current Value: {current_value}\n"
             f"BTC Price: {btc_price}\n"
@@ -411,10 +419,9 @@ class PortfolioTab:
 class PurchasesTab:
     """Handles purchases list display and management"""
     
-    def __init__(self, parent, api_client: APIClient, on_logout=None):
+    def __init__(self, parent, api_client: APIClient):
         self.parent = parent
         self.api_client = api_client
-        self.on_logout = on_logout
         self.frame = ttk.Frame(parent)
         self.purchases = []
         self.item_to_purchase_id = {}
@@ -424,15 +431,15 @@ class PurchasesTab:
         container = tk.Frame(self.frame)
         container.pack(pady=20, padx=20, fill="both", expand=True)
         
-        tk.Label(container, text="All Purchases", font=("Arial", 14, "bold")).pack(pady=10)
+        create_label(container, "All Purchases", 'header').pack(pady=10)
         
         # Currency filter
         filter_frame = tk.Frame(container)
         filter_frame.pack(pady=5)
         
-        tk.Label(filter_frame, text="Show cost in:").pack(side="left", padx=5)
+        create_label(filter_frame, "Show cost in:").pack(side="left", padx=5)
         self.currency_filter = ttk.Combobox(filter_frame, width=15, state="readonly")
-        self.currency_filter['values'] = CURRENCIES
+        self.currency_filter['values'] = format_currency_list()
         self.currency_filter.set('USD')
         self.currency_filter.pack(side="left", padx=5)
         self.currency_filter.bind('<<ComboboxSelected>>', self.on_currency_change)
@@ -469,9 +476,9 @@ class PurchasesTab:
         btn_frame = tk.Frame(parent)
         btn_frame.pack(pady=10)
         
-        tk.Button(btn_frame, text="Refresh List", command=self.refresh_purchases, bg="blue", fg="white").pack(pady=2)
-        tk.Button(btn_frame, text="Edit Selected", command=self.edit_purchase, bg="orange", fg="white").pack(pady=2)
-        tk.Button(btn_frame, text="Delete Selected", command=self.delete_purchase, bg="red", fg="white").pack(pady=2)
+        create_button(btn_frame, "Refresh List", self.refresh_purchases, 'refresh').pack(pady=2)
+        create_button(btn_frame, "Edit Selected", self.edit_purchase, 'edit').pack(pady=2)
+        create_button(btn_frame, "Delete Selected", self.delete_purchase, 'delete').pack(pady=2)
     
     def refresh_purchases(self):
         """Refresh purchases list"""
@@ -481,11 +488,6 @@ class PurchasesTab:
             if status_code == 200:
                 self.purchases = response
                 self.display_purchases()
-            elif status_code == 401:
-                # Token expired or invalid - redirect to login
-                show_error("Session Expired", "Your session has expired. Please log in again.")
-                if self.on_logout:
-                    self.on_logout()
             else:
                 show_error("Purchases Error", response.get("msg", "Failed to load purchases"))
         except Exception as e:
@@ -540,32 +542,32 @@ class PurchasesTab:
         edit_window.title("Edit Purchase")
         edit_window.geometry("400x400")
         
-        tk.Label(edit_window, text="Edit Purchase", font=("Arial", 14, "bold")).pack(pady=10)
+        create_label(edit_window, "Edit Purchase", 'header').pack(pady=10)
         
         # Form fields
-        tk.Label(edit_window, text="Purchase Date (YYYY-MM-DD):").pack()
-        date_entry = tk.Entry(edit_window, width=30)
-        date_entry.pack(pady=5)
+        date_label, date_entry = WidgetHelper.create_form_field(
+            edit_window, "Purchase Date (YYYY-MM-DD):", width=30
+        )
         date_entry.insert(0, purchase_data["purchase_date"])
         
-        tk.Label(edit_window, text="BTC Amount:").pack()
-        btc_entry = tk.Entry(edit_window, width=30)
-        btc_entry.pack(pady=5)
+        btc_label, btc_entry = WidgetHelper.create_form_field(
+            edit_window, "BTC Amount:", width=30
+        )
         btc_entry.insert(0, str(purchase_data["btc_amount"]))
         
-        tk.Label(edit_window, text="Cost USD:").pack()
-        usd_entry = tk.Entry(edit_window, width=30)
-        usd_entry.pack(pady=5)
+        usd_label, usd_entry = WidgetHelper.create_form_field(
+            edit_window, "Cost USD:", width=30
+        )
         usd_entry.insert(0, str(purchase_data["cost_usd"]))
         
-        tk.Label(edit_window, text="Cost CAD:").pack()
-        cad_entry = tk.Entry(edit_window, width=30)
-        cad_entry.pack(pady=5)
+        cad_label, cad_entry = WidgetHelper.create_form_field(
+            edit_window, "Cost CAD:", width=30
+        )
         cad_entry.insert(0, str(purchase_data["cost_cad"]))
         
-        tk.Label(edit_window, text="Notes:").pack()
-        notes_entry = tk.Text(edit_window, width=40, height=4)
-        notes_entry.pack(pady=5)
+        notes_label, notes_entry = WidgetHelper.create_form_field(
+            edit_window, "Notes:", entry_type='textarea', width=40, height=4
+        )
         notes_entry.insert("1.0", purchase_data["notes"])
         
         def update_purchase():
@@ -602,7 +604,7 @@ class PurchasesTab:
             except Exception as e:
                 show_error("Connection Error", str(e))
         
-        tk.Button(edit_window, text="Update Purchase", command=update_purchase, bg="orange", fg="white").pack(pady=10)
+        create_button(edit_window, "Update Purchase", update_purchase, 'edit').pack(pady=10)
     
     def delete_purchase(self):
         """Delete selected purchase"""
@@ -629,11 +631,10 @@ class PurchasesTab:
 class AddPurchaseTab:
     """Handles adding new purchases"""
     
-    def __init__(self, parent, api_client: APIClient, on_purchase_added, on_logout=None):
+    def __init__(self, parent, api_client: APIClient, on_purchase_added):
         self.parent = parent
         self.api_client = api_client
         self.on_purchase_added = on_purchase_added
-        self.on_logout = on_logout
         self.frame = ttk.Frame(parent)
         self.setup_ui()
     
@@ -641,34 +642,33 @@ class AddPurchaseTab:
         container = tk.Frame(self.frame)
         container.pack(pady=20, padx=20)
         
-        tk.Label(container, text="Add New Purchase", font=("Arial", 14, "bold")).pack(pady=10)
+        create_label(container, "Add New Purchase", 'header').pack(pady=10)
         
         # Form fields
-        tk.Label(container, text="Purchase Date (YYYY-MM-DD):").pack()
-        self.date_entry = tk.Entry(container, width=30)
-        self.date_entry.pack(pady=5)
+        self.date_label, self.date_entry = WidgetHelper.create_form_field(
+            container, "Purchase Date (YYYY-MM-DD):", width=30
+        )
         self.date_entry.insert(0, get_current_date())
         
-        tk.Label(container, text="BTC Amount:").pack()
-        self.btc_amount_entry = tk.Entry(container, width=30)
-        self.btc_amount_entry.pack(pady=5)
+        self.btc_label, self.btc_amount_entry = WidgetHelper.create_form_field(
+            container, "BTC Amount:", width=30
+        )
         
-        tk.Label(container, text="Currency:").pack()
+        # Currency selection
         self.currency_var = tk.StringVar(value="USD")
-        currency_frame = tk.Frame(container)
-        currency_frame.pack(pady=5)
-        tk.Radiobutton(currency_frame, text="USD", variable=self.currency_var, value="USD").pack(side="left", padx=10)
-        tk.Radiobutton(currency_frame, text="CAD", variable=self.currency_var, value="CAD").pack(side="left", padx=10)
+        WidgetHelper.create_radio_group(
+            container, "Currency:", ["USD", "CAD"], self.currency_var
+        )
         
-        tk.Label(container, text="Cost:").pack()
-        self.cost_entry = tk.Entry(container, width=30)
-        self.cost_entry.pack(pady=5)
+        self.cost_label, self.cost_entry = WidgetHelper.create_form_field(
+            container, "Cost:", width=30
+        )
         
-        tk.Label(container, text="Notes (optional):").pack()
-        self.notes_entry = tk.Text(container, width=40, height=4)
-        self.notes_entry.pack(pady=5)
+        self.notes_label, self.notes_entry = WidgetHelper.create_form_field(
+            container, "Notes (optional):", entry_type='textarea', width=40, height=4
+        )
         
-        tk.Button(container, text="Add Purchase", command=self.add_purchase, bg="green", fg="white").pack(pady=10)
+        create_button(container, "Add Purchase", self.add_purchase, 'add').pack(pady=10)
     
     def add_purchase(self):
         """Add new purchase"""
@@ -713,11 +713,6 @@ class AddPurchaseTab:
                 show_info("Success", f"Purchase added successfully!\nCost: {cost:.2f} {currency}")
                 self.clear_form()
                 self.on_purchase_added()
-            elif status_code == 401:
-                # Token expired or invalid - redirect to login
-                show_error("Session Expired", "Your session has expired. Please log in again.")
-                if self.on_logout:
-                    self.on_logout()
             else:
                 show_error("Add Failed", response.get("msg", "Failed to add purchase"))
         except ValueError as e:
@@ -749,7 +744,7 @@ class CSVImportTab:
         container = tk.Frame(self.frame)
         container.pack(pady=20, padx=20, fill="both", expand=True)
         
-        tk.Label(container, text="Import CSV File", font=("Arial", 14, "bold")).pack(pady=10)
+        create_label(container, "Import CSV File", 'header').pack(pady=10)
         
         # Step 1: File selection
         self.setup_file_selection(container)
@@ -766,12 +761,12 @@ class CSVImportTab:
         step1_frame.pack(fill="x", pady=10, padx=10)
         
         self.file_path_var = tk.StringVar()
-        tk.Label(step1_frame, text="Selected file:").pack(anchor="w", padx=10, pady=5)
+        create_label(step1_frame, "Selected file:").pack(anchor="w", padx=10, pady=5)
         
         self.file_path_label = tk.Label(step1_frame, textvariable=self.file_path_var, fg="gray")
         self.file_path_label.pack(anchor="w", padx=10)
         
-        tk.Button(step1_frame, text="Browse CSV File", command=self.browse_csv_file, bg="blue", fg="white").pack(pady=10)
+        create_button(step1_frame, "Browse CSV File", self.browse_csv_file, 'primary').pack(pady=10)
     
     def setup_column_mapping(self, parent):
         """Setup column mapping section"""
@@ -792,8 +787,8 @@ class CSVImportTab:
         button_frame = tk.Frame(step3_frame)
         button_frame.pack(pady=10)
         
-        tk.Button(button_frame, text="Preview Data", command=self.preview_csv_data, bg="orange", fg="white").pack(side="left", padx=5)
-        tk.Button(button_frame, text="Import All", command=self.import_csv_data, bg="green", fg="white").pack(side="left", padx=5)
+        create_button(button_frame, "Preview Data", self.preview_csv_data, 'warning').pack(side="left", padx=5)
+        create_button(button_frame, "Import All", self.import_csv_data, 'success').pack(side="left", padx=5)
     
     def browse_csv_file(self):
         """Open file dialog to select CSV file"""
@@ -845,7 +840,7 @@ class CSVImportTab:
         
         self.column_mappings = {}
         
-        tk.Label(self.mapping_frame, text="Map your CSV columns to required fields:", font=("Arial", 10, "bold")).grid(
+        create_label(self.mapping_frame, "Map your CSV columns to required fields:", 'label').grid(
             row=0, column=0, columnspan=3, pady=10
         )
         
@@ -894,7 +889,7 @@ class CSVImportTab:
         preview_container = tk.Frame(self.preview_frame)
         preview_container.pack(fill="both", expand=True)
         
-        tk.Label(preview_container, text="Preview (first 10 rows):", font=("Arial", 10, "bold")).pack(anchor="w")
+        create_label(preview_container, "Preview (first 10 rows):", 'label').pack(anchor="w")
         
         # Create preview table
         columns = ("Date", "BTC Amount", "Cost", "Currency", "Notes")
@@ -1011,11 +1006,11 @@ class CSVImportTab:
             show_error("Import Failed", result_message)
 
 class BTCApp:
-    """Main application class - clean and organized"""
+    """Main application class - cleaner and more organized"""
     
     def __init__(self, root):
         self.root = root
-        self.root.title("BTC Portfolio Tracker v0.02")
+        self.root.title("BTC Portfolio Tracker")
         self.root.geometry("800x600")
         
         # Initialize API client
@@ -1041,11 +1036,11 @@ class BTCApp:
         self.notebook.add(self.portfolio_tab.frame, text="Portfolio Summary")
         
         # Purchases tab
-        self.purchases_tab = PurchasesTab(self.notebook, self.api_client, self.logout)
+        self.purchases_tab = PurchasesTab(self.notebook, self.api_client)
         self.notebook.add(self.purchases_tab.frame, text="All Purchases")
         
         # Add purchase tab
-        self.add_purchase_tab = AddPurchaseTab(self.notebook, self.api_client, self.on_purchase_added, self.logout)
+        self.add_purchase_tab = AddPurchaseTab(self.notebook, self.api_client, self.on_purchase_added)
         self.notebook.add(self.add_purchase_tab.frame, text="Add Purchase")
         
         # CSV import tab

@@ -8,6 +8,7 @@ import requests
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import create_access_token, JWTManager, jwt_required, get_jwt_identity
 import secrets
+from datetime import timedelta
 
 # Load environment variables from .env file
 load_dotenv()
@@ -27,6 +28,9 @@ if not app.config["JWT_SECRET_KEY"]:
     app.config["JWT_SECRET_KEY"] = secrets.token_hex(32)
     print(f"Warning: JWT_SECRET_KEY not found in .env. Using a generated key: {app.config['JWT_SECRET_KEY']}")
     print("Please add JWT_SECRET_KEY=YOUR_GENERATED_KEY_HERE to your .env file for production use.")
+
+# Set JWT token expiration to 8 hours for better user experience
+app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=8)
 
 jwt = JWTManager(app)
 # --- JWT AND SECRET KEY CONFIGURATION END HERE ---
@@ -51,10 +55,11 @@ def init_db():
     ''')
 
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS purchases (
+        CREATE TABLE IF NOT EXISTS transactions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL,
-            purchase_date TEXT NOT NULL,
+            transaction_date TEXT NOT NULL,
+            transaction_type TEXT NOT NULL CHECK (transaction_type IN ('save', 'spend')),
             btc_amount REAL NOT NULL,
             cost_usd REAL NOT NULL,
             cost_cad REAL NOT NULL,
@@ -62,9 +67,16 @@ def init_db():
             FOREIGN KEY (user_id) REFERENCES users(id)
         )
     ''')
+    
+    # Migration: Copy existing purchases to transactions table as 'save' type
+    cursor.execute('''
+        INSERT OR IGNORE INTO transactions (user_id, transaction_date, transaction_type, btc_amount, cost_usd, cost_cad, notes)
+        SELECT user_id, purchase_date, 'save', btc_amount, cost_usd, cost_cad, notes 
+        FROM purchases
+    ''')
     conn.commit()
     conn.close()
-    print(f"Database '{DATABASE}' initialized with users and purchases tables.")
+    print(f"Database '{DATABASE}' initialized with users and transactions tables.")
 
 with app.app_context():
     init_db()
@@ -144,6 +156,117 @@ def protected():
         return jsonify(logged_in_as=user['username'], user_id=current_user_id), 200
     else:
         return jsonify({"msg": "User not found for this token"}), 404
+
+# --- Transaction Management Endpoints START HERE ---
+
+@app.route('/transactions', methods=['POST'])
+@jwt_required()
+def add_transaction():
+    current_user_id = get_jwt_identity()
+    data = request.get_json()
+    transaction_date = data.get('transaction_date')
+    transaction_type = data.get('transaction_type')  # 'save' or 'spend'
+    btc_amount = data.get('btc_amount')
+    cost_usd = data.get('cost_usd')
+    cost_cad = data.get('cost_cad')
+    notes = data.get('notes', '')
+
+    if not (transaction_date and transaction_type and btc_amount and cost_usd and cost_cad):
+        return jsonify({"msg": "Missing required fields"}), 400
+    
+    if transaction_type not in ['save', 'spend']:
+        return jsonify({"msg": "Invalid transaction type. Must be 'save' or 'spend'"}), 400
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        '''INSERT INTO transactions (user_id, transaction_date, transaction_type, btc_amount, cost_usd, cost_cad, notes)
+           VALUES (?, ?, ?, ?, ?, ?, ?)''',
+        (current_user_id, transaction_date, transaction_type, btc_amount, cost_usd, cost_cad, notes)
+    )
+    conn.commit()
+    conn.close()
+    return jsonify({"msg": "Transaction added successfully"}), 201
+
+@app.route('/transactions', methods=['GET'])
+@jwt_required()
+def list_transactions():
+    current_user_id = get_jwt_identity()
+    transaction_type = request.args.get('type')  # Optional filter by type
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    if transaction_type:
+        cursor.execute(
+            '''SELECT id, transaction_date, transaction_type, btc_amount, cost_usd, cost_cad, notes
+               FROM transactions WHERE user_id = ? AND transaction_type = ? ORDER BY transaction_date DESC''',
+            (current_user_id, transaction_type)
+        )
+    else:
+        cursor.execute(
+            '''SELECT id, transaction_date, transaction_type, btc_amount, cost_usd, cost_cad, notes
+               FROM transactions WHERE user_id = ? ORDER BY transaction_date DESC''',
+            (current_user_id,)
+        )
+    
+    transactions = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return jsonify(transactions), 200
+
+@app.route('/transactions/<int:transaction_id>', methods=['PUT'])
+@jwt_required()
+def update_transaction(transaction_id):
+    current_user_id = get_jwt_identity()
+    data = request.get_json()
+    transaction_date = data.get('transaction_date')
+    transaction_type = data.get('transaction_type')
+    btc_amount = data.get('btc_amount')
+    cost_usd = data.get('cost_usd')
+    cost_cad = data.get('cost_cad')
+    notes = data.get('notes', '')
+
+    if not (transaction_date and transaction_type and btc_amount and cost_usd and cost_cad):
+        return jsonify({"msg": "Missing required fields"}), 400
+    
+    if transaction_type not in ['save', 'spend']:
+        return jsonify({"msg": "Invalid transaction type. Must be 'save' or 'spend'"}), 400
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        '''UPDATE transactions
+           SET transaction_date = ?, transaction_type = ?, btc_amount = ?, cost_usd = ?, cost_cad = ?, notes = ?
+           WHERE id = ? AND user_id = ?''',
+        (transaction_date, transaction_type, btc_amount, cost_usd, cost_cad, notes, transaction_id, current_user_id)
+    )
+    conn.commit()
+    updated = cursor.rowcount
+    conn.close()
+
+    if updated:
+        return jsonify({"msg": "Transaction updated successfully"}), 200
+    else:
+        return jsonify({"msg": "Transaction not found or not authorized"}), 404
+
+@app.route('/transactions/<int:transaction_id>', methods=['DELETE'])
+@jwt_required()
+def delete_transaction(transaction_id):
+    current_user_id = get_jwt_identity()
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        '''DELETE FROM transactions WHERE id = ? AND user_id = ?''',
+        (transaction_id, current_user_id)
+    )
+    conn.commit()
+    deleted = cursor.rowcount
+    conn.close()
+
+    if deleted:
+        return jsonify({"msg": "Transaction deleted successfully"}), 200
+    else:
+        return jsonify({"msg": "Transaction not found or not authorized"}), 404
 
 # --- Portfolio Management Endpoints START HERE ---
 
@@ -244,12 +367,31 @@ def portfolio_summary():
     current_user_id = get_jwt_identity()
     conn = get_db_connection()
     cursor = conn.cursor()
+    
+    # Get savings (positive BTC)
+    cursor.execute(
+        '''SELECT SUM(btc_amount) as total_btc, SUM(cost_usd) as total_usd, SUM(cost_cad) as total_cad
+           FROM transactions WHERE user_id = ? AND transaction_type = 'save' ''',
+        (current_user_id,)
+    )
+    savings = cursor.fetchone()
+    
+    # Get spending (negative BTC)
+    cursor.execute(
+        '''SELECT SUM(btc_amount) as total_btc, SUM(cost_usd) as total_usd, SUM(cost_cad) as total_cad
+           FROM transactions WHERE user_id = ? AND transaction_type = 'spend' ''',
+        (current_user_id,)
+    )
+    spending = cursor.fetchone()
+    
+    # Also get from old purchases table for backward compatibility
     cursor.execute(
         '''SELECT SUM(btc_amount) as total_btc, SUM(cost_usd) as total_usd, SUM(cost_cad) as total_cad
            FROM purchases WHERE user_id = ?''',
         (current_user_id,)
     )
-    row = cursor.fetchone()
+    old_purchases = cursor.fetchone()
+    
     conn.close()
 
     # Fetch live BTC price
@@ -267,16 +409,41 @@ def portfolio_summary():
         price_usd = None
         price_cad = None
 
-    total_btc = row['total_btc'] or 0
-    total_usd = row['total_usd'] or 0
-    total_cad = row['total_cad'] or 0
+    # Calculate totals
+    saved_btc = savings['total_btc'] or 0
+    saved_usd = savings['total_usd'] or 0
+    saved_cad = savings['total_cad'] or 0
+    
+    spent_btc = spending['total_btc'] or 0
+    spent_usd = spending['total_usd'] or 0
+    spent_cad = spending['total_cad'] or 0
+    
+    # Include old purchases as savings for backward compatibility
+    old_btc = old_purchases['total_btc'] or 0
+    old_usd = old_purchases['total_usd'] or 0
+    old_cad = old_purchases['total_cad'] or 0
+    
+    # Net calculations
+    net_btc = saved_btc + old_btc - spent_btc
+    net_cost_usd = saved_usd + old_usd - spent_usd
+    net_cost_cad = saved_cad + old_cad - spent_cad
 
     return jsonify({
-        "total_btc": total_btc,
-        "cost_basis_usd": total_usd,
-        "cost_basis_cad": total_cad,
-        "current_value_usd": total_btc * price_usd if price_usd else None,
-        "current_value_cad": total_btc * price_cad if price_cad else None,
+        "net_btc": net_btc,
+        "net_cost_basis_usd": net_cost_usd,
+        "net_cost_basis_cad": net_cost_cad,
+        "current_value_usd": net_btc * price_usd if price_usd else None,
+        "current_value_cad": net_btc * price_cad if price_cad else None,
+        "savings": {
+            "btc": saved_btc + old_btc,
+            "cost_usd": saved_usd + old_usd,
+            "cost_cad": saved_cad + old_cad
+        },
+        "spending": {
+            "btc": spent_btc,
+            "cost_usd": spent_usd,
+            "cost_cad": spent_cad
+        },
         "btc_price_usd": price_usd,
         "btc_price_cad": price_cad
     }), 200
@@ -301,4 +468,4 @@ def get_btc_price():
         return jsonify({'msg': 'Failed to fetch BTC price', 'error': str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000) 
+    app.run(debug=True, port=5000)

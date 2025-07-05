@@ -1,0 +1,7 @@
+date,transaction_type,btc_amount,cost_usd,cost_cad,notes
+2024-01-15,save,0.00125000,50.00,67.50,First BTC purchase
+2024-02-01,save,0.00200000,80.00,108.00,Second BTC purchase
+2024-02-15,spend,0.00050000,25.00,33.75,Paid for coffee with BTC
+2024-03-01,save,0.00100000,45.00,60.75,Third BTC purchase
+2024-03-15,spend,0.00075000,35.00,47.25,Online purchase with BTC
+2024-04-01,save,0.00300000,120.00,162.00,Larger BTC purchase
