@@ -1,0 +1,133 @@
+# BTC Portfolio Tracker
+
+A desktop application for tracking Bitcoin purchases with portfolio analysis and live price integration.
+
+## Features
+
+- **User Authentication**: Secure registration and login with JWT tokens
+- **Purchase Management**: Add, edit, and delete BTC purchases
+- **Portfolio Analysis**: Real-time portfolio summary with cost basis
+- **Live Prices**: Integration with CoinGecko API for current BTC prices
+- **Desktop GUI**: User-friendly interface built with Python Tkinter
+
+## Project Structure
+
+```
+btc-tracker/
+├── backend/
+│   ├── app.py              # Flask API server
+│   ├── requirements.txt    # Python dependencies
+│   └── .env               # Environment variables (not committed)
+├── frontend/
+│   └── btc_gui.py         # Desktop GUI application
+├── README.md
+└── .gitignore
+```
+
+## Setup Instructions
+
+### Prerequisites
+- Python 3.7+
+- pip (Python package manager)
+
+### Backend Setup
+1. Navigate to the backend folder:
+   ```bash
+   cd backend
+   ```
+
+2. Create a virtual environment (recommended):
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
+
+3. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. Create a `.env` file with your secrets:
+   ```env
+   SECRET_KEY=your_secret_key_here
+   JWT_SECRET_KEY=your_jwt_secret_here
+   ```
+   
+   Generate secure keys with:
+   ```bash
+   python -c "import secrets; print(secrets.token_hex(32))"
+   ```
+
+5. Run the server:
+   ```bash
+   python app.py
+   ```
+
+### Frontend Setup
+1. Install tkinter (if not already installed):
+   ```bash
+   # Ubuntu/Debian
+   sudo apt-get install python3-tk
+   
+   # Fedora/CentOS
+   sudo dnf install tkinter
+   
+   # macOS (usually pre-installed)
+   # Windows (usually pre-installed)
+   ```
+
+2. Navigate to the frontend folder:
+   ```bash
+   cd frontend
+   ```
+
+3. Run the GUI application:
+   ```bash
+   python btc_gui.py
+   ```
+
+## Usage
+
+1. **Start the Backend**: Run `python app.py` in the backend folder
+2. **Launch the GUI**: Run `python btc_gui.py` in the frontend folder
+3. **Register**: Create a new account or login with existing credentials
+4. **Track Purchases**: Add your BTC purchases with date, amount, and cost
+5. **Monitor Portfolio**: View your portfolio summary with live BTC prices
+
+## API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/register` | Register new user |
+| POST | `/login` | User login |
+| GET | `/purchases` | List all purchases |
+| POST | `/purchases` | Add new purchase |
+| PUT | `/purchases/<id>` | Update purchase |
+| DELETE | `/purchases/<id>` | Delete purchase |
+| GET | `/portfolio/summary` | Portfolio summary with live prices |
+| GET | `/btc-price` | Current BTC price in USD/CAD |
+
+## Technologies Used
+
+- **Backend**: Flask, SQLite, Flask-JWT-Extended, Flask-CORS
+- **Frontend**: Python Tkinter
+- **APIs**: CoinGecko API for live Bitcoin prices
+- **Authentication**: JWT (JSON Web Tokens)
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature-name`
+3. Commit changes: `git commit -m 'Add feature'`
+4. Push to branch: `git push origin feature-name`
+5. Submit a pull request
+
+## License
+
+This project is open source and available under the MIT License.
+
+## Security Notes
+
+- Never commit your `.env` file to version control
+- Use strong, unique secret keys for production
+- Keep your JWT tokens secure and don't share them
