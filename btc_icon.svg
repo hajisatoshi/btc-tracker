@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle with gradient -->
+  <defs>
+    <linearGradient id="orangeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ff9500;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#ff6600;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="bitcoinGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#f0f0f0;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Main circle background -->
+  <circle cx="64" cy="64" r="60" fill="url(#orangeGradient)" stroke="#cc5500" stroke-width="2"/>
+  
+  <!-- Bitcoin symbol -->
+  <g transform="translate(64, 64)">
+    <!-- Bitcoin B -->
+    <path d="M-15 -25 L-15 -30 L-10 -30 L-10 -25 L-5 -25 L-5 -30 L0 -30 L0 -25 L5 -25 
+             C12 -25 17 -20 17 -13 
+             C17 -8 14 -5 10 -4
+             C15 -3 19 1 19 7
+             C19 15 12 20 5 20
+             L0 20 L0 25 L-5 25 L-5 20 L-10 20 L-10 25 L-15 25 L-15 20 L-20 20 L-20 15 L-15 15 L-15 -20 L-20 -20 L-20 -25 L-15 -25 Z
+             M-10 -20 L-10 -7 L5 -7 C8 -7 10 -9 10 -13 C10 -17 8 -20 5 -20 Z
+             M-10 -2 L-10 15 L5 15 C9 15 12 12 12 8 C12 4 9 -2 5 -2 Z" 
+          fill="url(#bitcoinGradient)" stroke="#cc5500" stroke-width="0.5"/>
+  </g>
+  
+  <!-- Inner shadow effect -->
+  <circle cx="64" cy="64" r="60" fill="none" stroke="rgba(0,0,0,0.1)" stroke-width="1" opacity="0.5"/>
+  
+  <!-- Highlight -->
+  <circle cx="54" cy="54" r="8" fill="rgba(255,255,255,0.3)"/>
+</svg>
