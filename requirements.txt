@@ -1,0 +1,29 @@
+# BTC Portfolio Tracker - Requirements
+# Backend Dependencies
+Flask==2.3.3
+Flask-CORS==4.0.0
+Flask-JWT-Extended==4.5.3
+Werkzeug==2.3.7
+requests==2.31.0
+python-dotenv==1.0.0
+
+# Frontend Dependencies (included in Python standard library)
+# tkinter - included with Python
+# sqlite3 - included with Python
+# csv - included with Python
+# datetime - included with Python
+# json - included with Python
+# os - included with Python
+# sys - included with Python
+# threading - included with Python
+
+# Build Dependencies
+PyInstaller==5.13.2
+setuptools==68.2.2
+wheel==0.41.2
+
+# Development Dependencies
+black==23.7.0
+flake8==6.0.0
+pytest==7.4.2
+pytest-flask==1.2.0

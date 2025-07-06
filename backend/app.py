@@ -63,17 +63,36 @@ def init_db():
             btc_amount REAL NOT NULL,
             cost_usd REAL NOT NULL,
             cost_cad REAL NOT NULL,
+            cost_eur REAL DEFAULT 0,
+            cost_gbp REAL DEFAULT 0,
+            currency TEXT DEFAULT 'USD',
             notes TEXT,
             FOREIGN KEY (user_id) REFERENCES users(id)
         )
     ''')
     
     # Migration: Copy existing purchases to transactions table as 'save' type
-    cursor.execute('''
-        INSERT OR IGNORE INTO transactions (user_id, transaction_date, transaction_type, btc_amount, cost_usd, cost_cad, notes)
-        SELECT user_id, purchase_date, 'save', btc_amount, cost_usd, cost_cad, notes 
-        FROM purchases
-    ''')
+    # First, add new columns to existing transactions if they don't exist
+    cursor.execute("PRAGMA table_info(transactions)")
+    columns = [column[1] for column in cursor.fetchall()]
+    
+    if 'cost_eur' not in columns:
+        cursor.execute('ALTER TABLE transactions ADD COLUMN cost_eur REAL DEFAULT 0')
+    if 'cost_gbp' not in columns:
+        cursor.execute('ALTER TABLE transactions ADD COLUMN cost_gbp REAL DEFAULT 0')
+    if 'currency' not in columns:
+        cursor.execute('ALTER TABLE transactions ADD COLUMN currency TEXT DEFAULT "USD"')
+    
+    # Now copy existing purchases to transactions table as 'save' type (if purchases table exists)
+    try:
+        cursor.execute('''
+            INSERT OR IGNORE INTO transactions (user_id, transaction_date, transaction_type, btc_amount, cost_usd, cost_cad, cost_eur, cost_gbp, currency, notes)
+            SELECT user_id, purchase_date, 'save', btc_amount, cost_usd, cost_cad, 0, 0, 'USD', notes 
+            FROM purchases
+        ''')
+    except sqlite3.OperationalError:
+        # Purchases table doesn't exist, skip migration
+        pass
     conn.commit()
     conn.close()
     print(f"Database '{DATABASE}' initialized with users and transactions tables.")
@@ -167,22 +186,28 @@ def add_transaction():
     transaction_date = data.get('transaction_date')
     transaction_type = data.get('transaction_type')  # 'save' or 'spend'
     btc_amount = data.get('btc_amount')
-    cost_usd = data.get('cost_usd')
-    cost_cad = data.get('cost_cad')
+    cost_usd = data.get('cost_usd', 0)
+    cost_cad = data.get('cost_cad', 0)
+    cost_eur = data.get('cost_eur', 0)
+    cost_gbp = data.get('cost_gbp', 0)
+    currency = data.get('currency', 'USD')  # Default to USD
     notes = data.get('notes', '')
 
-    if not (transaction_date and transaction_type and btc_amount and cost_usd and cost_cad):
+    if not (transaction_date and transaction_type and btc_amount):
         return jsonify({"msg": "Missing required fields"}), 400
     
     if transaction_type not in ['save', 'spend']:
         return jsonify({"msg": "Invalid transaction type. Must be 'save' or 'spend'"}), 400
 
+    if currency not in ['USD', 'CAD', 'EUR', 'GBP']:
+        return jsonify({"msg": "Invalid currency. Must be USD, CAD, EUR, or GBP"}), 400
+
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute(
-        '''INSERT INTO transactions (user_id, transaction_date, transaction_type, btc_amount, cost_usd, cost_cad, notes)
-           VALUES (?, ?, ?, ?, ?, ?, ?)''',
-        (current_user_id, transaction_date, transaction_type, btc_amount, cost_usd, cost_cad, notes)
+        '''INSERT INTO transactions (user_id, transaction_date, transaction_type, btc_amount, cost_usd, cost_cad, cost_eur, cost_gbp, currency, notes)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+        (current_user_id, transaction_date, transaction_type, btc_amount, cost_usd, cost_cad, cost_eur, cost_gbp, currency, notes)
     )
     conn.commit()
     conn.close()
@@ -193,23 +218,27 @@ def add_transaction():
 def list_transactions():
     current_user_id = get_jwt_identity()
     transaction_type = request.args.get('type')  # Optional filter by type
+    currency = request.args.get('currency')  # Optional filter by currency
     
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    if transaction_type:
-        cursor.execute(
-            '''SELECT id, transaction_date, transaction_type, btc_amount, cost_usd, cost_cad, notes
-               FROM transactions WHERE user_id = ? AND transaction_type = ? ORDER BY transaction_date DESC''',
-            (current_user_id, transaction_type)
-        )
-    else:
-        cursor.execute(
-            '''SELECT id, transaction_date, transaction_type, btc_amount, cost_usd, cost_cad, notes
-               FROM transactions WHERE user_id = ? ORDER BY transaction_date DESC''',
-            (current_user_id,)
-        )
+    # Build query based on filters
+    query = '''SELECT id, transaction_date, transaction_type, btc_amount, cost_usd, cost_cad, cost_eur, cost_gbp, currency, notes
+               FROM transactions WHERE user_id = ?'''
+    params = [current_user_id]
     
+    if transaction_type:
+        query += ' AND transaction_type = ?'
+        params.append(transaction_type)
+    
+    if currency:
+        query += ' AND currency = ?'
+        params.append(currency)
+    
+    query += ' ORDER BY transaction_date DESC'
+    
+    cursor.execute(query, params)
     transactions = [dict(row) for row in cursor.fetchall()]
     conn.close()
     return jsonify(transactions), 200
@@ -222,23 +251,29 @@ def update_transaction(transaction_id):
     transaction_date = data.get('transaction_date')
     transaction_type = data.get('transaction_type')
     btc_amount = data.get('btc_amount')
-    cost_usd = data.get('cost_usd')
-    cost_cad = data.get('cost_cad')
+    cost_usd = data.get('cost_usd', 0)
+    cost_cad = data.get('cost_cad', 0)
+    cost_eur = data.get('cost_eur', 0)
+    cost_gbp = data.get('cost_gbp', 0)
+    currency = data.get('currency', 'USD')
     notes = data.get('notes', '')
 
-    if not (transaction_date and transaction_type and btc_amount and cost_usd and cost_cad):
+    if not (transaction_date and transaction_type and btc_amount):
         return jsonify({"msg": "Missing required fields"}), 400
     
     if transaction_type not in ['save', 'spend']:
         return jsonify({"msg": "Invalid transaction type. Must be 'save' or 'spend'"}), 400
 
+    if currency not in ['USD', 'CAD', 'EUR', 'GBP']:
+        return jsonify({"msg": "Invalid currency. Must be USD, CAD, EUR, or GBP"}), 400
+
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute(
         '''UPDATE transactions
-           SET transaction_date = ?, transaction_type = ?, btc_amount = ?, cost_usd = ?, cost_cad = ?, notes = ?
+           SET transaction_date = ?, transaction_type = ?, btc_amount = ?, cost_usd = ?, cost_cad = ?, cost_eur = ?, cost_gbp = ?, currency = ?, notes = ?
            WHERE id = ? AND user_id = ?''',
-        (transaction_date, transaction_type, btc_amount, cost_usd, cost_cad, notes, transaction_id, current_user_id)
+        (transaction_date, transaction_type, btc_amount, cost_usd, cost_cad, cost_eur, cost_gbp, currency, notes, transaction_id, current_user_id)
     )
     conn.commit()
     updated = cursor.rowcount
@@ -279,6 +314,9 @@ def add_purchase():
     btc_amount = data.get('btc_amount')
     cost_usd = data.get('cost_usd')
     cost_cad = data.get('cost_cad')
+    cost_eur = data.get('cost_eur', 0)
+    cost_gbp = data.get('cost_gbp', 0)
+    currency = data.get('currency', 'USD')
     notes = data.get('notes', '')
 
     if not (purchase_date and btc_amount and cost_usd and cost_cad):
@@ -287,9 +325,9 @@ def add_purchase():
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute(
-        '''INSERT INTO purchases (user_id, purchase_date, btc_amount, cost_usd, cost_cad, notes)
-           VALUES (?, ?, ?, ?, ?, ?)''',
-        (current_user_id, purchase_date, btc_amount, cost_usd, cost_cad, notes)
+        '''INSERT INTO transactions (user_id, transaction_date, transaction_type, btc_amount, cost_usd, cost_cad, cost_eur, cost_gbp, currency, notes)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+        (current_user_id, purchase_date, 'save', btc_amount, cost_usd, cost_cad, cost_eur, cost_gbp, currency, notes)
     )
     conn.commit()
     conn.close()
@@ -302,8 +340,8 @@ def list_purchases():
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute(
-        '''SELECT id, purchase_date, btc_amount, cost_usd, cost_cad, notes
-           FROM purchases WHERE user_id = ? ORDER BY purchase_date DESC''',
+        '''SELECT id, transaction_date as purchase_date, btc_amount, cost_usd, cost_cad, cost_eur, cost_gbp, currency, notes
+           FROM transactions WHERE user_id = ? AND transaction_type = 'save' ORDER BY transaction_date DESC''',
         (current_user_id,)
     )
     purchases = [dict(row) for row in cursor.fetchall()]
@@ -319,6 +357,9 @@ def update_purchase(purchase_id):
     btc_amount = data.get('btc_amount')
     cost_usd = data.get('cost_usd')
     cost_cad = data.get('cost_cad')
+    cost_eur = data.get('cost_eur', 0)
+    cost_gbp = data.get('cost_gbp', 0)
+    currency = data.get('currency', 'USD')
     notes = data.get('notes', '')
 
     if not (purchase_date and btc_amount and cost_usd and cost_cad):
@@ -327,10 +368,10 @@ def update_purchase(purchase_id):
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute(
-        '''UPDATE purchases
-           SET purchase_date = ?, btc_amount = ?, cost_usd = ?, cost_cad = ?, notes = ?
-           WHERE id = ? AND user_id = ?''',
-        (purchase_date, btc_amount, cost_usd, cost_cad, notes, purchase_id, current_user_id)
+        '''UPDATE transactions
+           SET transaction_date = ?, btc_amount = ?, cost_usd = ?, cost_cad = ?, cost_eur = ?, cost_gbp = ?, currency = ?, notes = ?
+           WHERE id = ? AND user_id = ? AND transaction_type = 'save' ''',
+        (purchase_date, btc_amount, cost_usd, cost_cad, cost_eur, cost_gbp, currency, notes, purchase_id, current_user_id)
     )
     conn.commit()
     updated = cursor.rowcount
@@ -348,7 +389,7 @@ def delete_purchase(purchase_id):
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute(
-        '''DELETE FROM purchases WHERE id = ? AND user_id = ?''',
+        '''DELETE FROM transactions WHERE id = ? AND user_id = ? AND transaction_type = 'save' ''',
         (purchase_id, current_user_id)
     )
     conn.commit()
@@ -370,7 +411,7 @@ def portfolio_summary():
     
     # Get savings (positive BTC)
     cursor.execute(
-        '''SELECT SUM(btc_amount) as total_btc, SUM(cost_usd) as total_usd, SUM(cost_cad) as total_cad
+        '''SELECT SUM(btc_amount) as total_btc, SUM(cost_usd) as total_usd, SUM(cost_cad) as total_cad, SUM(cost_eur) as total_eur, SUM(cost_gbp) as total_gbp
            FROM transactions WHERE user_id = ? AND transaction_type = 'save' ''',
         (current_user_id,)
     )
@@ -378,19 +419,11 @@ def portfolio_summary():
     
     # Get spending (negative BTC)
     cursor.execute(
-        '''SELECT SUM(btc_amount) as total_btc, SUM(cost_usd) as total_usd, SUM(cost_cad) as total_cad
+        '''SELECT SUM(btc_amount) as total_btc, SUM(cost_usd) as total_usd, SUM(cost_cad) as total_cad, SUM(cost_eur) as total_eur, SUM(cost_gbp) as total_gbp
            FROM transactions WHERE user_id = ? AND transaction_type = 'spend' ''',
         (current_user_id,)
     )
     spending = cursor.fetchone()
-    
-    # Also get from old purchases table for backward compatibility
-    cursor.execute(
-        '''SELECT SUM(btc_amount) as total_btc, SUM(cost_usd) as total_usd, SUM(cost_cad) as total_cad
-           FROM purchases WHERE user_id = ?''',
-        (current_user_id,)
-    )
-    old_purchases = cursor.fetchone()
     
     conn.close()
 
@@ -398,54 +431,69 @@ def portfolio_summary():
     try:
         response = requests.get(
             'https://api.coingecko.com/api/v3/simple/price',
-            params={'ids': 'bitcoin', 'vs_currencies': 'usd,cad'},
+            params={'ids': 'bitcoin', 'vs_currencies': 'usd,cad,eur,gbp'},
             timeout=10
         )
         response.raise_for_status()
         data = response.json()
         price_usd = data['bitcoin']['usd']
         price_cad = data['bitcoin']['cad']
+        price_eur = data['bitcoin']['eur']
+        price_gbp = data['bitcoin']['gbp']
     except Exception as e:
         price_usd = None
         price_cad = None
+        price_eur = None
+        price_gbp = None
 
     # Calculate totals
     saved_btc = savings['total_btc'] or 0
     saved_usd = savings['total_usd'] or 0
     saved_cad = savings['total_cad'] or 0
+    saved_eur = savings['total_eur'] or 0
+    saved_gbp = savings['total_gbp'] or 0
     
     spent_btc = spending['total_btc'] or 0
     spent_usd = spending['total_usd'] or 0
     spent_cad = spending['total_cad'] or 0
-    
-    # Include old purchases as savings for backward compatibility
-    old_btc = old_purchases['total_btc'] or 0
-    old_usd = old_purchases['total_usd'] or 0
-    old_cad = old_purchases['total_cad'] or 0
+    spent_eur = spending['total_eur'] or 0
+    spent_gbp = spending['total_gbp'] or 0
     
     # Net calculations
-    net_btc = saved_btc + old_btc - spent_btc
-    net_cost_usd = saved_usd + old_usd - spent_usd
-    net_cost_cad = saved_cad + old_cad - spent_cad
+    net_btc = saved_btc - spent_btc
+    net_cost_usd = saved_usd - spent_usd
+    net_cost_cad = saved_cad - spent_cad
+    net_cost_eur = saved_eur - spent_eur
+    net_cost_gbp = saved_gbp - spent_gbp
 
     return jsonify({
         "net_btc": net_btc,
         "net_cost_basis_usd": net_cost_usd,
         "net_cost_basis_cad": net_cost_cad,
+        "net_cost_basis_eur": net_cost_eur,
+        "net_cost_basis_gbp": net_cost_gbp,
         "current_value_usd": net_btc * price_usd if price_usd else None,
         "current_value_cad": net_btc * price_cad if price_cad else None,
+        "current_value_eur": net_btc * price_eur if price_eur else None,
+        "current_value_gbp": net_btc * price_gbp if price_gbp else None,
         "savings": {
-            "btc": saved_btc + old_btc,
-            "cost_usd": saved_usd + old_usd,
-            "cost_cad": saved_cad + old_cad
+            "btc": saved_btc,
+            "cost_usd": saved_usd,
+            "cost_cad": saved_cad,
+            "cost_eur": saved_eur,
+            "cost_gbp": saved_gbp
         },
         "spending": {
             "btc": spent_btc,
             "cost_usd": spent_usd,
-            "cost_cad": spent_cad
+            "cost_cad": spent_cad,
+            "cost_eur": spent_eur,
+            "cost_gbp": spent_gbp
         },
         "btc_price_usd": price_usd,
-        "btc_price_cad": price_cad
+        "btc_price_cad": price_cad,
+        "btc_price_eur": price_eur,
+        "btc_price_gbp": price_gbp
     }), 200
 
 @app.route('/btc-price', methods=['GET'])
@@ -455,7 +503,7 @@ def get_btc_price():
             'https://api.coingecko.com/api/v3/simple/price',
             params={
                 'ids': 'bitcoin',
-                'vs_currencies': 'usd,cad'
+                'vs_currencies': 'usd,cad,eur,gbp'
             },
             timeout=10
         )
@@ -463,7 +511,14 @@ def get_btc_price():
         data = response.json()
         price_usd = data['bitcoin']['usd']
         price_cad = data['bitcoin']['cad']
-        return jsonify({'btc_usd': price_usd, 'btc_cad': price_cad}), 200
+        price_eur = data['bitcoin']['eur']
+        price_gbp = data['bitcoin']['gbp']
+        return jsonify({
+            'btc_usd': price_usd, 
+            'btc_cad': price_cad,
+            'btc_eur': price_eur,
+            'btc_gbp': price_gbp
+        }), 200
     except Exception as e:
         return jsonify({'msg': 'Failed to fetch BTC price', 'error': str(e)}), 500
 

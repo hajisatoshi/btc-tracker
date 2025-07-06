@@ -1,7 +1,7 @@
 [Desktop Entry]
-Name=BTC Tracker v2.0 - Amazing GUI
+Name=BTC Portfolio Tracker v2
 Comment=Bitcoin Portfolio Tracker - Savings & Spending
-Exec=/home/mhf/Projects/btc-tracker/frontend/btc_gui_v2.py
+Exec=/home/mhf/Projects/btc-tracker/backend/venv/bin/python3 /home/mhf/Projects/btc-tracker/frontend/btc_gui.py
 Icon=/home/mhf/Projects/btc-tracker/btc_icon.png
 Terminal=false
 Type=Application
