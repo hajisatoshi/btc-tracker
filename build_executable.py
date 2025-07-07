@@ -62,7 +62,9 @@ def create_distribution():
     print("Creating distribution package...")
     
     # Create dist directory structure
-    dist_dir = 'dist/BTC-Portfolio-Tracker'
+    dist_dir = 'dist/BTC-Portfolio-Tracker-Package'
+    if os.path.exists(dist_dir):
+        shutil.rmtree(dist_dir)
     os.makedirs(dist_dir, exist_ok=True)
     
     # Copy executable
