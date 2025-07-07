@@ -62,9 +62,9 @@
 ### Download Pre-Built Executable (Recommended)
 
 1. **Download** the latest release for your operating system:
-   - [Windows (64-bit)](https://github.com/hajisatoshi/btc-tracker/releases) - Coming soon!
-   - [macOS (Intel/Apple Silicon)](https://github.com/hajisatoshi/btc-tracker/releases) - Coming soon!
-   - [Linux (64-bit)](https://github.com/hajisatoshi/btc-tracker/releases) - Coming soon!
+   - [Windows (64-bit)](https://github.com/hajisatoshi/btc-tracker/releases) - Coming soon via GitHub Actions!
+   - [macOS (Intel/Apple Silicon)](https://github.com/hajisatoshi/btc-tracker/releases) - Coming soon via GitHub Actions!
+   - [Linux (64-bit)](https://github.com/hajisatoshi/btc-tracker/releases/download/v2.0.0/BTC-Portfolio-Tracker-v2.0.0-Linux.tar.gz) - **Available Now!**
 
 2. **Install/Run**:
    - **Windows**: Double-click the `.exe` file
@@ -78,7 +78,11 @@
 ## 📦 Installation
 
 ### Option 1: Pre-Built Executables
-Download the appropriate executable for your system from the [Releases](https://github.com/hajisatoshi/btc-tracker/releases) page (releases coming soon!).
+Download the appropriate executable for your system from the [Releases](https://github.com/hajisatoshi/btc-tracker/releases) page.
+
+**Available Now:**
+- [Linux (64-bit)](https://github.com/hajisatoshi/btc-tracker/releases/download/v2.0.0/BTC-Portfolio-Tracker-v2.0.0-Linux.tar.gz)
+- Windows and macOS versions coming soon via GitHub Actions!
 
 ### Option 2: Install from Source
 
