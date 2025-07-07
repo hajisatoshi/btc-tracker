@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](https://github.com/yourusername/btc-portfolio-tracker)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](https://github.com/hajisatoshi/btc-tracker)
 
 ## 📋 Table of Contents
 
@@ -13,7 +13,6 @@
 - [Installation](#-installation)
 - [Usage](#-usage)
 - [Multi-Currency Support](#-multi-currency-support)
-- [Screenshots](#-screenshots)
 - [Development](#-development)
 - [Contributing](#-contributing)
 - [License](#-license)
@@ -57,9 +56,9 @@
 ### Download Pre-Built Executable (Recommended)
 
 1. **Download** the latest release for your operating system:
-   - [Windows (64-bit)](https://github.com/yourusername/btc-portfolio-tracker/releases/latest/download/BTC-Portfolio-Tracker-Windows.exe)
-   - [macOS (Intel/Apple Silicon)](https://github.com/yourusername/btc-portfolio-tracker/releases/latest/download/BTC-Portfolio-Tracker-macOS.dmg)
-   - [Linux (64-bit)](https://github.com/yourusername/btc-portfolio-tracker/releases/latest/download/BTC-Portfolio-Tracker-Linux.tar.gz)
+   - [Windows (64-bit)](https://github.com/hajisatoshi/btc-tracker/releases/latest/download/BTC-Portfolio-Tracker-Windows.exe)
+   - [macOS (Intel/Apple Silicon)](https://github.com/hajisatoshi/btc-tracker/releases/latest/download/BTC-Portfolio-Tracker-macOS.dmg)
+   - [Linux (64-bit)](https://github.com/hajisatoshi/btc-tracker/releases/latest/download/BTC-Portfolio-Tracker-Linux.tar.gz)
 
 2. **Install/Run**:
    - **Windows**: Double-click the `.exe` file
@@ -73,7 +72,7 @@
 ## 📦 Installation
 
 ### Option 1: Pre-Built Executables
-Download the appropriate executable for your system from the [Releases](https://github.com/yourusername/btc-portfolio-tracker/releases) page.
+Download the appropriate executable for your system from the [Releases](https://github.com/hajisatoshi/btc-tracker/releases) page.
 
 ### Option 2: Install from Source
 
@@ -85,8 +84,8 @@ Download the appropriate executable for your system from the [Releases](https://
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/btc-portfolio-tracker.git
-cd btc-portfolio-tracker
+git clone https://github.com/hajisatoshi/btc-tracker.git
+cd btc-tracker
 
 # Create virtual environment (recommended)
 python -m venv venv
@@ -279,11 +278,60 @@ btc-portfolio-tracker/
 - `GET /portfolio/summary` - Get portfolio summary
 - `GET /btc-price` - Get current BTC prices
 
+## 🛠️ Development
+
+### Setting Up Development Environment
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/hajisatoshi/btc-tracker.git
+   cd btc-tracker
+   ```
+
+2. **Create virtual environment**
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
+
+3. **Install dependencies**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. **Start the backend server**
+   ```bash
+   cd backend
+   python app.py
+   ```
+
+5. **Start the frontend (in a new terminal)**
+   ```bash
+   python frontend/btc_gui.py
+   ```
+
+### Building Executables
+
+Use the build script to create standalone executables:
+
+```bash
+python build_executable.py
+```
+
+This will create executables in the `dist/` directory.
+
+### Code Style
+
+- Follow PEP 8 Python style guidelines
+- Use `black` for code formatting
+- Run `flake8` for linting
+- Add tests for new features
+
 ## 🤝 Contributing
 
 We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
 
-### Development Workflow
+### How to Contribute
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
@@ -292,13 +340,6 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 5. Commit your changes (`git commit -m 'Add amazing feature'`)
 6. Push to the branch (`git push origin feature/amazing-feature`)
 7. Open a Pull Request
-
-### Code Style
-
-- Follow PEP 8 Python style guidelines
-- Use `black` for code formatting
-- Run `flake8` for linting
-- Add tests for new features
 
 ## 📄 License
 
