@@ -3,7 +3,13 @@
 > **A comprehensive Bitcoin portfolio tracking application with multi-currency support, savings/spending management, and real-time price monitoring.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.s## 📞 Support
+
+- 🐛 Bug Reports: [GitHub Issues](https://github.com/hajisatoshi/btc-tracker/issues)
+- 📖 Documentation: [Wiki](https://github.com/hajisatoshi/btc-tracker/wiki)
+- 💬 Discussions: [GitHub Discussions](https://github.com/hajisatoshi/btc-tracker/discussions)Bug Reports: [GitHub Issues](https://github.com/hajisatoshi/btc-tracker/issues)
+- 📖 Documentation: [Wiki](https://github.com/hajisatoshi/btc-tracker/wiki)
+- 💬 Discussions: [GitHub Discussions](https://github.com/hajisatoshi/btc-tracker/discussions)](https://www.python.org/downloads/)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](https://github.com/hajisatoshi/btc-tracker)
 
 ## 📋 Table of Contents
@@ -56,9 +62,9 @@
 ### Download Pre-Built Executable (Recommended)
 
 1. **Download** the latest release for your operating system:
-   - [Windows (64-bit)](https://github.com/hajisatoshi/btc-tracker/releases/latest/download/BTC-Portfolio-Tracker-Windows.exe)
-   - [macOS (Intel/Apple Silicon)](https://github.com/hajisatoshi/btc-tracker/releases/latest/download/BTC-Portfolio-Tracker-macOS.dmg)
-   - [Linux (64-bit)](https://github.com/hajisatoshi/btc-tracker/releases/latest/download/BTC-Portfolio-Tracker-Linux.tar.gz)
+   - [Windows (64-bit)](https://github.com/hajisatoshi/btc-tracker/releases) - Coming soon!
+   - [macOS (Intel/Apple Silicon)](https://github.com/hajisatoshi/btc-tracker/releases) - Coming soon!
+   - [Linux (64-bit)](https://github.com/hajisatoshi/btc-tracker/releases) - Coming soon!
 
 2. **Install/Run**:
    - **Windows**: Double-click the `.exe` file
@@ -72,7 +78,7 @@
 ## 📦 Installation
 
 ### Option 1: Pre-Built Executables
-Download the appropriate executable for your system from the [Releases](https://github.com/hajisatoshi/btc-tracker/releases) page.
+Download the appropriate executable for your system from the [Releases](https://github.com/hajisatoshi/btc-tracker/releases) page (releases coming soon!).
 
 ### Option 2: Install from Source
 
@@ -209,7 +215,7 @@ btc-tracker/
 
 ```bash
 # Clone repository
-git clone https://github.com/yourusername/btc-portfolio-tracker.git
+git clone https://github.com/hajisatoshi/btc-tracker.git
 cd btc-portfolio-tracker
 
 # Setup virtual environment
